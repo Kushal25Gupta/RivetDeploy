@@ -1,0 +1,680 @@
+RivetDeploy
+JetSki Build Specification
+Deployment Orchestration & Secure Build Platform
+Single source of truth for implementation
+ 
+Project identity
+RivetDeploy
+Primary goal
+Deploy Git repositories through an asynchronous, isolated, observable pipeline
+Primary backend
+Java 21 + Spring Boot 4.1.x
+Cloud
+Google Cloud
+ 
+Important implementation rule: build the system in the exact order in this document. Do not add optional features until all required acceptance criteria for the current phase pass.
+
+1. Executive Brief
+RivetDeploy is a self-hosted deployment orchestration platform inspired by the infrastructure patterns behind modern deployment platforms. A user connects a GitHub repository, triggers a deployment, and RivetDeploy schedules and executes the build in an isolated Docker environment, stores the immutable build artifacts in Google Cloud Storage, activates a deployment version, and serves the site through the routing layer.
+The project is deliberately designed around engineering problems rather than feature count: asynchronous job orchestration, safe execution of untrusted build commands, immutable deployments, failure recovery, real-time visibility, and measurable performance.
+The final project must demonstrate a complete working path, deliberate failure tests, and real benchmark data. Example metrics in this document are targets for measurement format only; never publish fabricated numbers.
+2. Product Statement
+From commit to controlled deployment.
+RivetDeploy turns a Git commit into a controlled deployment artifact through a traceable state machine and an isolated build runtime. Every deployment has a unique immutable identity, a full event trail, and a recoverable lifecycle.
+3. What the User Can Do
+Authenticate with GitHub.
+Create a project connected to a GitHub repository and branch.
+Trigger a deployment manually.
+Enable automatic deployment from a GitHub webhook.
+Watch deployment state and build logs in real time.
+View deployment history and commit metadata.
+Open the active deployed static site.
+Cancel a running deployment.
+Rollback to a previous successful deployment without rebuilding.
+Inspect deployment failures and retry behavior.
+
+4. Core Engineering Problems
+Problem
+RivetDeploy solution
+Why it matters
+Job orchestration
+FIFO queue + scheduler + worker lifecycle
+Separates request handling from long-running work.
+Secure arbitrary builds
+Ephemeral Docker execution + CPU/memory/time limits
+Prevents one build from becoming an uncontrolled platform workload.
+Immutable deployment
+Unique deployment prefix in Cloud Storage
+Enables reliable history and zero-rebuild rollback.
+Reliability
+Failure classification + exponential backoff + cleanup
+Handles real-world transient and permanent failures differently.
+Proof
+Failure injection + load tests + benchmarks
+Shows what the system actually does rather than what it claims.
+
+5. Locked Technology Stack
+Layer
+Technology
+Role
+Language
+Java 21
+Primary backend language; stable LTS baseline.
+Backend
+Spring Boot 4.1.x
+Control plane API, security, scheduling, WebSocket, integrations.
+API
+REST/JSON
+Project, deployment, log, rollback and webhook APIs.
+Security
+Spring Security + GitHub OAuth
+Authentication and server-side authorization.
+Frontend
+React + TypeScript + Vite
+Developer dashboard.
+UI
+Tailwind CSS + shadcn/ui
+Fast, consistent dashboard UI.
+Client data
+TanStack Query
+Server-state fetching, caching and invalidation.
+Charts
+Recharts
+Deployment and performance visualizations.
+Database
+PostgreSQL
+Durable platform metadata and state.
+Production DB
+Google Cloud SQL for PostgreSQL
+Managed production PostgreSQL.
+Queue abstraction
+JobQueue interface
+Allows queue implementation to evolve without rewriting scheduler logic.
+Initial queue
+In-memory FIFO
+Simplest correct baseline for scheduler development.
+Persistent queue
+Redis
+Later queue implementation and shared worker coordination.
+Build execution
+Docker
+Ephemeral per-deployment build runtime.
+Object storage
+Google Cloud Storage
+Immutable static build artifacts.
+API hosting
+Google Cloud Run
+Stateless Spring Boot control plane.
+Build workers
+Google Compute Engine
+Dedicated Docker workers with host-level Docker control.
+Container registry
+Artifact Registry
+Versioned container images for API/worker infrastructure.
+Cloud database
+Cloud SQL
+Managed PostgreSQL.
+Secrets
+Secret Manager
+Production secret storage and access.
+Production delivery
+External Application Load Balancer + Cloud CDN + GCS
+Static content delivery path.
+Local routing
+Nginx
+Local/static routing demonstration and reverse proxy.
+Realtime
+WebSocket
+Live deployment logs/events.
+Observability
+Micrometer + OpenTelemetry
+Metrics, traces and correlated events.
+IaC
+Terraform
+Reproducible GCP infrastructure.
+CI/CD
+GitHub Actions
+Test, build, publish and deploy RivetDeploy itself.
+Testing
+JUnit 5 + Mockito + Testcontainers
+Unit and integration testing.
+Load testing
+k6
+Repeatable deployment load and latency tests.
+Local orchestration
+Docker Compose
+Local Postgres, Redis and platform services.
+Build tool
+Maven
+Java dependency/build lifecycle.
+
+6. Cloud Architecture Decision
+Important: do not design the production system around running a Docker daemon inside a normal Cloud Run service. Cloud Run provides managed container execution, including services, jobs and worker pools, but RivetDeploy needs direct control over ephemeral Docker build containers, resource limits and cleanup. Therefore the final design separates the control plane from the build plane.
+Cloud Run: Spring Boot API/control plane.
+Compute Engine: dedicated build worker host(s) running Docker and the RivetDeploy worker process.
+Cloud SQL: durable PostgreSQL metadata.
+Redis: shared queue implementation after the initial in-memory phase.
+Cloud Storage: immutable deployment artifacts.
+Artifact Registry: RivetDeploy API/worker images.
+Secret Manager: GitHub and cloud secrets.
+Load Balancer + Cloud CDN: production static delivery path.
+Terraform: creates and updates cloud infrastructure.
+This separation is a design feature, not a workaround: it makes the build executor an explicit platform component that can be benchmarked, isolated and scaled.
+
+7. Final System Architecture
+GitHub    |    | OAuth / Webhook    v +-------------------------+ | Spring Boot API         |  <-- Cloud Run | Auth / Projects / API   | +------------+------------+              |              +----> PostgreSQL (Cloud SQL)              |              v +-------------------------+ | JobQueue / Scheduler    | | FIFO / retry / state    | +------------+------------+              |              v +-------------------------+ | Build Worker            |  <-- Compute Engine | Docker executor         | +------------+------------+              |              v +-------------------------+ | Ephemeral Docker build  | | CPU / RAM / timeout     | | non-root / cleanup      | +------------+------------+              |         +----+----+         |         |         v         v    Event stream  Artifacts         |         |         v         v    WebSocket   Cloud Storage         |         |         v         v    React UI   LB / CDN -> site 
+8. Repository Structure
+rivetdeploy/ ├── backend/ │   ├── src/main/java/.../api/ │   ├── src/main/java/.../auth/ │   ├── src/main/java/.../project/ │   ├── src/main/java/.../deployment/ │   ├── src/main/java/.../scheduler/ │   ├── src/main/java/.../executor/ │   ├── src/main/java/.../storage/ │   ├── src/main/java/.../github/ │   ├── src/main/java/.../events/ │   ├── src/main/java/.../observability/ │   └── src/test/java/.../ ├── worker/ │   ├── executor/ │   ├── docker/ │   └── worker-runtime/ ├── frontend/ │   ├── src/pages/ │   ├── src/components/ │   ├── src/features/projects/ │   ├── src/features/deployments/ │   ├── src/features/logs/ │   └── src/lib/ ├── infra/ │   ├── terraform/ │   ├── docker/ │   └── nginx/ ├── tests/ │   ├── integration/ │   ├── failure-injection/ │   └── load/ ├── docs/ │   └── adr/ ├── docker-compose.yml └── README.md 
+9. Deployment State Machine
+QUEUED   |   v CLONING   |   v INSTALLING   |   v BUILDING   |   v UPLOADING   |   v DEPLOYED  Failure terminals: CLONE_FAILED INSTALL_FAILED BUILD_FAILED UPLOAD_FAILED TIMEOUT SYSTEM_FAILED CANCELLED 
+All state transitions must be explicit and validated. A deployment must never jump directly from QUEUED to DEPLOYED, and terminal states must not transition back into active build states.
+10. Required Deployment Lifecycle
+1. Create deployment record with a unique deployment ID and commit SHA.
+2. Persist state QUEUED.
+3. Publish job to FIFO queue.
+4. Worker claims job and moves state to CLONING.
+5. Worker creates an ephemeral build workspace/container.
+6. Clone the requested repository/commit using the approved GitHub integration.
+7. Install dependencies inside the build environment.
+8. Run the configured build command.
+9. Capture stdout/stderr as deployment events.
+10. Locate and validate the build output directory.
+11. Upload output to a unique Cloud Storage deployment prefix.
+12. Activate the deployment by updating the project active-deployment pointer.
+13. Mark deployment DEPLOYED and emit final event.
+14. Always perform cleanup, including on timeout/failure/cancellation.
+
+11. Phase 1 - Core Engine
+Phase 1 is the minimum complete platform. Do not proceed to advanced features until the end-to-end acceptance test passes.
+Order
+Feature
+Functionality
+Acceptance criteria
+1
+Project bootstrap
+Create backend, frontend, DB, Docker Compose, CI skeleton.
+All services start locally with documented commands.
+2
+GitHub OAuth
+Authenticate and identify the current user.
+User can sign in/out and session is secure.
+3
+Projects
+Store repository URL, branch and project ownership.
+User can create/list/view only their projects.
+4
+Deployment API
+POST creates a deployment and queue job.
+Request is idempotent and returns deployment ID.
+5
+State machine
+Validate deployment transitions.
+Invalid transitions are rejected and tested.
+6
+FIFO queue
+Queue jobs in insertion order.
+Jobs execute in FIFO order under one worker.
+7
+Single worker
+Claim and execute one job at a time.
+Worker processes jobs and records final state.
+8
+Docker executor
+Create isolated build container per deployment.
+Container is created and destroyed per job.
+9
+Resource limits
+Enforce CPU, memory and timeout.
+Limit violations are detected and recorded.
+10
+Cloud Storage
+Upload immutable output to deployment-specific prefix.
+Old deployments remain unchanged.
+11
+Nginx routing
+Serve active deployment for local demo.
+Project URL resolves to the active version.
+12
+Realtime logs
+Stream deployment events to UI.
+User sees live state/log changes without refresh.
+13
+Deployment history
+List deployments by project.
+Each deployment shows status, SHA and timestamps.
+14
+Rollback
+Change active deployment pointer.
+Rollback serves old artifact without rebuild.
+
+12. Phase 1 Build Details
+12.1 API controller
+POST   /api/projects GET    /api/projects GET    /api/projects/{projectId} POST   /api/projects/{projectId}/deployments GET    /api/deployments/{deploymentId} GET    /api/projects/{projectId}/deployments POST   /api/deployments/{deploymentId}/rollback POST   /api/deployments/{deploymentId}/cancel GET    /api/deployments/{deploymentId}/events POST   /api/webhooks/github
+API controllers must remain thin. Business rules belong in services/domain logic; queue and Docker operations belong behind interfaces.
+12.2 Build executor contract
+BuildResult execute(BuildRequest request)  BuildRequest: - deploymentId - repositoryUrl - commitSha - buildCommand - outputDirectory - resourcePolicy  BuildResult: - success - artifactLocation - failureType - duration - summary
+12.3 Queue abstraction
+interface JobQueue {   enqueue(Job job);   Job dequeue();   acknowledge(Job job);   requeue(Job job, Duration delay);   size(); }
+The scheduler must depend on JobQueue, not Redis-specific code. Implement InMemoryJobQueue first; implement RedisJobQueue after the scheduler is proven correct.
+
+13. Phase 2 - Production Behaviour
+Feature
+Required behavior
+Done when
+Retry/backoff
+Retry only transient/system failures; exponential backoff; max attempts.
+Tests prove retry and no-retry classifications.
+Failure classification
+Differentiate user build failures from infrastructure failures.
+Every failure receives a stable failure code/category.
+GitHub webhooks
+Push event creates deployment for configured branch.
+Signature is verified and duplicate events are safe.
+Rollback
+Activate previous successful immutable deployment.
+Rollback completes without rebuilding.
+Authorization
+Users can only access owned resources.
+Negative authorization tests pass.
+Idempotency
+Duplicate deployment requests do not create inconsistent duplicate actions.
+Repeated identical request is safe.
+Cancellation
+Terminate running build and clean resources.
+Cancelled build ends in CANCELLED and container is gone.
+
+14. Retry Policy
+Transient examples: - Git/network timeout - Cloud Storage transient failure - Worker/Docker runtime interruption  Permanent examples: - invalid repository - build command exit code != 0 - malformed output directory - user cancellation  Example backoff: Attempt 1 -> immediate Attempt 2 -> 1s Attempt 3 -> 2s Attempt 4 -> 4s Cap and jitter the delay in the real implementation.
+15. Immutable Deployment Model
+gs://rivetdeploy-artifacts/   projects/{projectId}/     deployments/{deploymentId}/       index.html       assets/...  Project record: activeDeploymentId = dpl_003
+Rollback changes the activeDeploymentId pointer. It never mutates dpl_001, dpl_002, etc.
+
+16. Phase 2B - Scaling and Optimization
+Feature
+Implementation
+Measurement
+Concurrent workers
+Run 1, 2, 3 and 4 worker configurations behind the same queue abstraction.
+Throughput, queue wait, P50/P95/P99, CPU and memory.
+Build caching
+Cache dependency/build layers using deterministic cache keys.
+Cold vs cached build duration and cache hit rate.
+Cancellation
+Cancellation token/event checked by scheduler and executor.
+Time-to-cancel, cleanup correctness, final state.
+
+Do not add worker count simply to claim scalability. The purpose is to discover the bottleneck and explain why throughput stops improving.
+17. Observability
+17.1 Metrics
+deployment_total
+deployment_success_total
+deployment_failure_total
+queue_wait_seconds
+build_duration_seconds
+deployment_duration_seconds
+active_workers
+retry_total
+cancel_total
+resource-limit violations
+17.2 Structured events
+deployment.created deployment.queued deployment.cloning deployment.installing deployment.building deployment.uploading deployment.activated deployment.deployed deployment.failed deployment.retry_scheduled deployment.cancel_requested deployment.cancelled container.created container.destroyed
+
+18. Security Requirements
+Never run arbitrary user builds in a privileged container.
+Run build processes as non-root where practical.
+Apply CPU, memory and execution-time limits.
+Prevent leaked credentials from appearing in build logs.
+Validate GitHub webhook signatures.
+Validate and authorize every project/deployment access from the backend.
+Use short-lived or scoped cloud credentials where practical.
+Keep secrets in Secret Manager in production.
+Never commit real credentials to Git.
+Ensure containers and temporary workspaces are cleaned even after failures.
+Validate repository URLs, commands and output paths to reduce path/injection risks.
+Log security-relevant failures without logging secrets.
+19. Failure Injection Matrix
+Scenario
+Expected result
+Test evidence
+Git clone failure
+Retry if transient; otherwise fail with classification.
+Automated test + event log.
+Build command failure
+BUILD_FAILED; no automatic retry.
+Automated integration test.
+Build timeout
+Terminate container; mark TIMEOUT; cleanup.
+Integration test.
+Out-of-memory build
+Container/build fails under limit; cleanup.
+Controlled stress test.
+Docker/runtime interruption
+Job becomes recoverable and retry policy evaluates.
+Worker failure injection.
+Cloud Storage failure
+Retry on transient failure.
+Mock/integration test.
+Duplicate webhook
+No inconsistent duplicate deployment.
+Webhook replay test.
+Cancellation during build
+Terminate build and mark CANCELLED.
+Live cancellation test.
+
+20. Test Strategy
+20.1 Unit tests
+State transition rules
+Retry policy
+Failure classifier
+FIFO behavior
+Idempotency rules
+Authorization rules
+Rollback logic
+20.2 Integration tests
+Spring Boot API + PostgreSQL using Testcontainers
+Queue + worker lifecycle
+Docker executor where environment permits
+Cloud Storage integration through mocks/test project
+GitHub webhook signature verification
+20.3 End-to-end test
+Create project -> trigger deployment -> queue -> build -> upload -> activate -> open deployed site -> deploy new commit -> rollback -> verify previous site restored
+21. Benchmark Plan
+All numbers in the final README and resume must come from actual test runs. Do not copy target/example values from this specification.
+21.1 Worker scaling experiment
+Workload: same set of test repositories/commits Configurations: 1, 2, 3, 4 workers Collect: - total deployment time - P50 / P95 / P99 latency - average queue wait - throughput (deployments/minute) - success rate - CPU and memory utilization
+21.2 Caching experiment
+Cold run: no reusable cache Warm run: same dependency graph/cache key Compare: - total build time - install time - cache hit rate - artifact upload time
+21.3 Resource enforcement experiment
+Test builds that are: normal, CPU-heavy, memory-heavy, long-running. Verify the configured limit causes the intended terminal state and cleanup.
+22. Benchmark Report Template
+Metric
+1 worker
+2 workers
+3 workers
+4 workers
+Throughput
+TBD
+TBD
+TBD
+TBD
+P50 latency
+TBD
+TBD
+TBD
+TBD
+P95 latency
+TBD
+TBD
+TBD
+TBD
+P99 latency
+TBD
+TBD
+TBD
+TBD
+Avg queue wait
+TBD
+TBD
+TBD
+TBD
+Success rate
+TBD
+TBD
+TBD
+TBD
+
+TBD values must be replaced only after real measurements are recorded.
+23. Frontend Requirements
+23.1 Pages
+Page
+Required content
+Login
+GitHub sign-in and basic product identity.
+Dashboard
+Projects, latest deployment status and basic metrics.
+Project detail
+Repository, branch, current production version, Deploy button, history.
+Deployment detail
+State timeline, commit information, live logs, duration, retry/cancel controls.
+Rollback view
+Previous successful deployments and confirmation action.
+Settings
+Repository/branch configuration and deployment options.
+
+23.2 Visual behavior
+Use clear status badges for QUEUED, BUILDING, DEPLOYED, FAILED, CANCELLED.
+Logs update live without a full-page refresh.
+Failures show actionable error category and step.
+Deployment history is easy to compare by version/commit/time.
+Dashboard emphasizes platform state and operational signals, not decorative UI.
+24. Backend Package Responsibilities
+Package
+Responsibility
+auth
+GitHub OAuth, authenticated principal, authorization checks.
+project
+Project CRUD and ownership.
+deployment
+Deployment commands, state machine, history, rollback.
+scheduler
+Queue interaction, job lifecycle, concurrency, retries.
+executor
+Build container lifecycle and build result collection.
+storage
+Cloud Storage object operations and active-version semantics.
+github
+Repository metadata and webhook validation.
+events
+Deployment events and WebSocket publication.
+observability
+Metrics, traces, structured event correlation.
+common
+Shared DTOs, errors, validation and utilities.
+
+
+25. Infrastructure and Environments
+25.1 Local development
+Docker Compose - PostgreSQL - Redis (optional until queue persistence phase) - Nginx - RivetDeploy API - RivetDeploy worker - React frontend
+25.2 Production on Google Cloud
+Cloud Run   -> Spring Boot API  Compute Engine   -> RivetDeploy worker(s)   -> Docker build runtime  Cloud SQL   -> PostgreSQL  Redis / Memorystore   -> queue implementation  Cloud Storage   -> immutable deployment artifacts  Artifact Registry   -> RivetDeploy API/worker images  Secret Manager   -> production secrets  External Application Load Balancer + Cloud CDN   -> production static site delivery
+26. Terraform Scope
+GCP project/service enablement where appropriate.
+Cloud Run service configuration.
+Compute Engine build-worker VM/instance group.
+Cloud SQL PostgreSQL.
+Redis/Memorystore configuration when introduced.
+Cloud Storage buckets and IAM.
+Artifact Registry repository.
+Service accounts and IAM bindings.
+Secret Manager secret resources.
+Load balancer/CDN resources.
+Terraform must be reviewed before apply. Never put user secrets directly into Terraform source files.
+27. CI/CD Pipeline for RivetDeploy Itself
+Pull Request   -> compile   -> unit tests   -> integration tests   -> container build  Merge to main   -> build/version images   -> push to Artifact Registry   -> deploy API to Cloud Run   -> deploy/update worker infrastructure   -> smoke test
+28. API Contract - Minimum Set
+Method
+Endpoint
+Purpose
+GET
+/api/me
+Current authenticated user.
+POST
+/api/projects
+Create project.
+GET
+/api/projects
+List owned projects.
+GET
+/api/projects/{id}
+Project detail.
+POST
+/api/projects/{id}/deployments
+Create deployment.
+GET
+/api/projects/{id}/deployments
+Deployment history.
+GET
+/api/deployments/{id}
+Deployment detail.
+GET
+/api/deployments/{id}/events
+Historical deployment events.
+POST
+/api/deployments/{id}/cancel
+Cancel queued/running deployment.
+POST
+/api/deployments/{id}/rollback
+Activate previous successful deployment.
+POST
+/api/webhooks/github
+Receive GitHub webhook events.
+WS
+/ws/deployments/{id}
+Stream live deployment events.
+
+29. Data and Event Rules
+Every deployment has one immutable deployment ID.
+Every deployment records the triggering commit SHA.
+Every state change produces a timestamped event.
+Terminal deployments must contain enough failure information to explain why they ended.
+Active deployment is a pointer/reference, not a mutable copy of artifacts.
+Artifacts are never modified after a deployment is marked immutable.
+Rollback only changes the active deployment reference.
+User ownership is checked on every protected resource read/write.
+30. Architecture Decision Records
+Create these documents in docs/adr/.
+ADR
+Question
+001
+Why FIFO scheduling before priority scheduling?
+002
+Why separate controller/control plane from Docker build workers?
+003
+Why immutable artifacts and pointer-based rollback?
+004
+Why classify retryable vs non-retryable failures?
+005
+Why one worker first, then measure 1-4 workers?
+006
+Why PostgreSQL for durable state?
+007
+Why Redis only after the queue abstraction is proven?
+008
+Why Compute Engine for build workers on GCP?
+
+
+31. Definition of Done - Phase Gates
+Gate A - Core platform
+A real GitHub repository can be deployed.
+Deployment state transitions are correct.
+Build runs in an isolated Docker container.
+Resource limits are enforced.
+Artifacts are immutable in Cloud Storage.
+Active site resolves correctly.
+Logs stream in real time.
+Deployment history exists.
+Rollback works without rebuild.
+Gate B - Reliability
+Transient failures retry with backoff.
+Permanent build failures do not retry.
+Webhook signatures are verified.
+Duplicate events are safe.
+User authorization is enforced.
+Cancellation cleans up the build runtime.
+Gate C - Scale
+Worker pool supports multiple workers.
+Benchmark results compare 1-4 workers.
+Caching experiment is repeatable.
+Resource behavior is measured.
+Gate D - Proof
+Failure injection suite passes.
+Load test results are recorded.
+Benchmark graphs are committed.
+ADRs explain major design choices.
+README documents setup, architecture and limitations.
+32. What Not to Claim
+Do not claim “production-grade” unless the implemented controls and deployment environment justify the phrase.
+Do not claim “multi-tenant” unless resource ownership and authorization are implemented and tested.
+Do not claim a benchmark number until the benchmark has actually been run.
+Do not claim “secure sandbox” as an absolute guarantee; describe the controls actually implemented.
+Do not call it a Vercel clone in the project title.
+33. Resume Positioning
+The project should be presented as an infrastructure/system-engineering project, not as a UI clone.
+Project: RivetDeploy — Deployment Orchestration & Secure Build Platform  Potential final bullet structure (replace placeholders only with measured results): • Engineered a deployment orchestration platform that executes repository builds in isolated Docker environments, schedules jobs through a FIFO worker system, stores immutable Cloud Storage artifacts, and supports zero-rebuild rollback. • Implemented GitHub webhook deployments, real-time build logs, retry/backoff handling, cancellation, authorization, and failure classification with explicit deployment state transitions. • Benchmarked 1-4 worker configurations across [N] deployments, measuring throughput, queue wait time, P95/P99 latency, resource utilization, and failure recovery behavior.
+34. Interview Topics This Project Must Support
+Why a queue instead of doing builds inside the API request?
+Why FIFO before priority scheduling?
+How do you stop one build from exhausting machine resources?
+What happens if the worker dies halfway through a build?
+Why are deployments immutable?
+How does rollback work without rebuilding?
+Which failures should retry and which should not?
+How does cancellation coordinate with a running container?
+What happens when worker count increases from 1 to 4?
+Where is the bottleneck according to your benchmark?
+Why PostgreSQL for metadata and Redis for queueing?
+Why are build workers separated from the Cloud Run API?
+
+35. Build Order - JetSki Execution Checklist
+Implement these tasks in order. JetSki should treat each item as a deliverable with tests, not as a suggestion.
+1. Create monorepo and documentation skeleton.
+2. Create Spring Boot backend with Java 21 and Maven.
+3. Create React + TypeScript + Vite frontend.
+4. Create Docker Compose for local PostgreSQL and Nginx.
+5. Implement PostgreSQL schema and migrations.
+6. Implement GitHub OAuth login.
+7. Implement project CRUD with ownership checks.
+8. Implement deployment entity and explicit state machine.
+9. Implement InMemoryJobQueue and FIFO tests.
+10. Implement single worker process.
+11. Implement Docker build executor with resource policy.
+12. Implement repository clone and build command execution.
+13. Implement build log/event collection.
+14. Implement Cloud Storage artifact upload and immutable prefixes.
+15. Implement active deployment pointer and Nginx routing.
+16. Implement deployment history and rollback.
+17. Implement WebSocket live logs.
+18. Implement retry policy and failure classification.
+19. Implement GitHub webhook auto-deploy with signature verification.
+20. Implement idempotency for deployment creation/webhooks.
+21. Implement cancellation and cleanup.
+22. Implement Redis-backed JobQueue behind the existing interface.
+23. Implement multi-worker execution and concurrency limits.
+24. Implement build caching experiment.
+25. Implement metrics and structured logs.
+26. Create failure-injection test suite.
+27. Create k6 load test suite.
+28. Run 1-4 worker benchmarks.
+29. Analyze bottlenecks and record results.
+30. Write ADRs and architecture documentation.
+31. Provision GCP with Terraform.
+32. Deploy API to Cloud Run and build workers to Compute Engine.
+33. Configure Cloud SQL, Redis, Cloud Storage, Artifact Registry and Secret Manager.
+34. Configure production delivery path using Load Balancer + Cloud CDN.
+35. Run end-to-end cloud smoke tests.
+36. Update README with only verified metrics and screenshots.
+37. Create final project demo and resume bullets from measured facts.
+36. Final Rule for JetSki
+Do not invent missing architecture, add unrelated features, or replace the selected technologies without a documented reason. When an implementation detail is ambiguous, preserve the contracts in this specification: state machine, queue abstraction, build executor isolation, immutable artifacts, event stream, rollback semantics, failure classification, authorization, and benchmarkability.
+The project is successful when JetSki can produce a working end-to-end deployment platform and a repository that proves how the platform behaves under failure and load. Feature count is not the success metric; correctness, isolation, recoverability and measured performance are.
+37. Current Technology Verification Notes
+At the time this specification was prepared (August 22, 2026), Spring Boot 4.1.1 was the latest 4.1.x maintenance release, and Google Cloud documents Cloud Run services, jobs and worker pools as supported managed container execution models. Google Cloud also documents Cloud Storage static website hosting. These facts were checked against official vendor documentation before this specification was finalized.
+Official references:
+https://spring.io/blog/2026/08/20/spring-boot-4-1-1-available-now/
+https://docs.cloud.google.com/run/docs/overview/what-is-cloud-run
+https://docs.cloud.google.com/run/docs/deploying
+https://docs.cloud.google.com/storage/docs/hosting-static-website?hl=en
+
+
+
+
+
+
+
+
+RivetDeploy | JetSki Build Specification
+
+RivetDeploy | Implementation single source of truth  |  Page PAGE1
+
+
+
