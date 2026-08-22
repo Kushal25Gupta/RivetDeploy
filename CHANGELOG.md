@@ -52,3 +52,9 @@ All notable changes to this project will be documented in this file.
 - Modified `backend/Dockerfile` to use Ubuntu (`eclipse-temurin:21-jre`) instead of Alpine, and added instructions to install `nixpacks`, `curl`, `git`, and `docker.io` so that the worker can build child images.
 - Configured `DockerBuildService` to check for `Dockerfile` in the root of the cloned repo. If absent, it shells out to `nixpacks build . --name {tag}`.
 - Updated `WorkerServiceTest` and `WorkerService` transitions to strictly follow `CLONING -> INSTALLING -> BUILDING -> UPLOADING -> DEPLOYED` flow as required by the state machine.
+## [2026-08-22T18:18:00Z]
+- Implemented build log and event collection (Step 13).
+- Created `EventLoggerService` that persists `DeploymentEvent` entities into the `deployment_events` table using Spring Data JPA.
+- Set `@Transactional(propagation = Propagation.REQUIRES_NEW)` on event logging to ensure logs are committed immediately even if the parent build transaction rolls back.
+- Integrated `EventLoggerService` into `WorkerService` to persist pipeline state transitions and final build status.
+- Integrated `EventLoggerService` into `DockerBuildService` to capture and stream `DockerClient` build output and `ProcessBuilder` Nixpacks standard output directly into the database as events.

@@ -3,6 +3,7 @@ package com.rivetdeploy.backend.docker;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.BuildImageResultCallback;
 import com.github.dockerjava.api.model.BuildResponseItem;
+import com.rivetdeploy.backend.events.EventLoggerService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -16,9 +17,11 @@ public class DockerBuildService {
 
     private static final Logger log = LoggerFactory.getLogger(DockerBuildService.class);
     private final DockerService dockerService;
+    private final EventLoggerService eventLoggerService;
 
-    public DockerBuildService(DockerService dockerService) {
+    public DockerBuildService(DockerService dockerService, EventLoggerService eventLoggerService) {
         this.dockerService = dockerService;
+        this.eventLoggerService = eventLoggerService;
     }
 
     public String buildImage(String deploymentId, File sourceDirectory) {
@@ -49,9 +52,13 @@ public class DockerBuildService {
                         @Override
                         public void onNext(BuildResponseItem item) {
                             if (item.getStream() != null) {
-                                log.info("[BUILD {}] {}", deploymentId, item.getStream().trim());
+                                String msg = item.getStream().trim();
+                                log.info("[BUILD {}] {}", deploymentId, msg);
+                                eventLoggerService.logEvent(deploymentId, "BUILD_LOG", msg);
                             } else if (item.getErrorDetail() != null) {
-                                log.error("[BUILD {}] ERROR: {}", deploymentId, item.getErrorDetail().getMessage());
+                                String errorMsg = item.getErrorDetail().getMessage();
+                                log.error("[BUILD {}] ERROR: {}", deploymentId, errorMsg);
+                                eventLoggerService.logEvent(deploymentId, "BUILD_ERROR_LOG", errorMsg);
                             }
                             super.onNext(item);
                         }
@@ -72,9 +79,17 @@ public class DockerBuildService {
                 "nixpacks", "build", ".", "--name", imageTag
             );
             pb.directory(sourceDirectory);
-            pb.inheritIO(); // stream to backend stdout (which will eventually pipe to DB)
+            pb.redirectErrorStream(true);
             
             Process process = pb.start();
+            try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    log.info("[NIXPACKS {}] {}", deploymentId, line);
+                    eventLoggerService.logEvent(deploymentId, "BUILD_LOG", line);
+                }
+            }
+            
             int exitCode = process.waitFor();
             
             if (exitCode != 0) {

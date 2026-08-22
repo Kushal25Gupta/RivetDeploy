@@ -38,6 +38,9 @@ class WorkerServiceTest {
     @Mock
     private com.rivetdeploy.backend.docker.DockerBuildService dockerBuildService;
 
+    @Mock
+    private com.rivetdeploy.backend.events.EventLoggerService eventLoggerService;
+
     private WorkerService workerService;
 
     @BeforeEach
@@ -51,7 +54,7 @@ class WorkerServiceTest {
             return null;
         }).when(transactionTemplate).executeWithoutResult(any());
 
-        workerService = new WorkerService(jobQueue, deploymentRepository, transactionTemplate, gitService, dockerBuildService);
+        workerService = new WorkerService(jobQueue, deploymentRepository, transactionTemplate, gitService, dockerBuildService, eventLoggerService);
     }
 
     @Test

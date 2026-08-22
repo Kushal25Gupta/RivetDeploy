@@ -25,17 +25,20 @@ public class WorkerService {
     private final TransactionTemplate transactionTemplate;
     private final com.rivetdeploy.backend.git.GitService gitService;
     private final com.rivetdeploy.backend.docker.DockerBuildService dockerBuildService;
+    private final com.rivetdeploy.backend.events.EventLoggerService eventLoggerService;
     
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private volatile boolean isRunning = true;
 
     public WorkerService(JobQueue jobQueue, DeploymentRepository deploymentRepository, TransactionTemplate transactionTemplate,
-                         com.rivetdeploy.backend.git.GitService gitService, com.rivetdeploy.backend.docker.DockerBuildService dockerBuildService) {
+                         com.rivetdeploy.backend.git.GitService gitService, com.rivetdeploy.backend.docker.DockerBuildService dockerBuildService,
+                         com.rivetdeploy.backend.events.EventLoggerService eventLoggerService) {
         this.jobQueue = jobQueue;
         this.deploymentRepository = deploymentRepository;
         this.transactionTemplate = transactionTemplate;
         this.gitService = gitService;
         this.dockerBuildService = dockerBuildService;
+        this.eventLoggerService = eventLoggerService;
     }
 
     @PostConstruct
@@ -91,9 +94,11 @@ public class WorkerService {
             // Transition to DEPLOYED
             updateDeploymentState(job.getDeploymentId(), DeploymentState.DEPLOYED);
             log.info("Deployment {} completed successfully with image {}", job.getDeploymentId(), imageTag);
+            eventLoggerService.logEvent(job.getDeploymentId(), "BUILD_SUCCESS", "Successfully built image: " + imageTag);
 
         } catch (Exception e) {
             log.error("Failed to process deployment {}", job.getDeploymentId(), e);
+            eventLoggerService.logEvent(job.getDeploymentId(), "BUILD_ERROR", "Pipeline failed: " + e.getMessage());
             updateDeploymentState(job.getDeploymentId(), DeploymentState.SYSTEM_FAILED);
         }
     }
@@ -106,6 +111,9 @@ public class WorkerService {
             deploymentRepository.save(deployment);
             log.debug("Deployment {} transitioned to {}", deploymentId, state);
         });
+        
+        // Log event AFTER transaction completes successfully
+        eventLoggerService.logEvent(deploymentId, "STATE_CHANGE", "Transitioned to " + state.name());
     }
 
     private void simulateWork(long millis) throws InterruptedException {
