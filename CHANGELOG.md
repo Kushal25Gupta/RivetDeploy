@@ -58,3 +58,44 @@ All notable changes to this project will be documented in this file.
 - Set `@Transactional(propagation = Propagation.REQUIRES_NEW)` on event logging to ensure logs are committed immediately even if the parent build transaction rolls back.
 - Integrated `EventLoggerService` into `WorkerService` to persist pipeline state transitions and final build status.
 - Integrated `EventLoggerService` into `DockerBuildService` to capture and stream `DockerClient` build output and `ProcessBuilder` Nixpacks standard output directly into the database as events.
+## [2026-08-22T18:22:00Z]
+- Implemented Cloud Storage / Artifact Upload service (Step 14).
+- Added `ArtifactStorageService` interface with `LocalArtifactStorageService` (using immutable directory prefixes `projects/{projectId}/deployments/{deploymentId}`) and `GcsArtifactStorageService` for Google Cloud Storage.
+## [2026-08-22T18:25:00Z]
+- Implemented Active Deployment Pointer and Nginx Routing (Step 15).
+- Added atomic symlink switching for local storage (`projects/{projectId}/current -> deployments/{deploymentId}`).
+- Configured shared `artifacts_data` volume and Nginx `/sites/` location block to serve active static assets without container restarts.
+## [2026-08-22T18:28:00Z]
+- Implemented Deployment History & Rollback (Step 16).
+- Added `rollback` method in `DeploymentService` and `POST /api/deployments/{id}/rollback` endpoint in `DeploymentController`.
+- Verified rollback switches active pointers without rebuilding artifacts.
+## [2026-08-22T18:31:00Z]
+- Implemented WebSocket Live Logs (Step 17).
+- Created `DeploymentLogWebSocketHandler` and `WebSocketConfig` mapping to `/ws/deployments/{id}`.
+- Wired `EventLoggerService` to broadcast `DeploymentEventDto` to active WebSocket subscribers.
+## [2026-08-22T18:34:00Z]
+- Implemented Retry Policy and Failure Classification (Step 18).
+- Created `FailureClassifier`, `FailureType`, `TransientFailureException`, `PermanentFailureException`, and `RetryPolicy` (exponential backoff with jitter).
+- Configured state machine transitions allowing retry back to `QUEUED` and terminal failure states (`BUILD_FAILED`, `CLONE_FAILED`, `SYSTEM_FAILED`).
+## [2026-08-22T18:37:00Z]
+- Implemented GitHub Webhook Auto-Deploy with HMAC-SHA256 Signature Verification (Step 19).
+- Created `GitHubWebhookService` and `POST /api/webhooks/github` controller endpoint.
+- Implemented constant-time HMAC SHA-256 signature verification and automated deployment triggering on repository push events.
+## [2026-08-22T18:38:00Z]
+- Implemented Webhook Idempotency (Step 20).
+- Created Flyway migration `V3__create_webhook_deliveries.sql` and `WebhookDelivery` repository to deduplicate webhook deliveries by `X-GitHub-Delivery`.
+## [2026-08-22T18:39:00Z]
+- Implemented Deployment Cancellation and Resource Cleanup (Step 21).
+- Created `CancellationManager`, `POST /api/deployments/{id}/cancel` endpoint, and integrated cancellation checkpoints into `WorkerService`.
+- Added automated workspace cleanup in `GitService.cleanupWorkspace()`.
+## [2026-08-22T18:40:00Z]
+- Implemented Redis-Backed JobQueue (Step 22).
+- Added `RedisJobQueue` with `@ConditionalOnProperty(name = "rivetdeploy.queue.type", havingValue = "redis")` supporting delayed ZSet scheduling, blocking pops, and explicit acks.
+- Added Redis container to `docker-compose.yml`.
+## [2026-08-22T18:41:00Z]
+- Implemented Multi-Worker Execution & Concurrency Limits (Step 23).
+- Configured `WorkerService` to dynamically spin up fixed worker pools configured via `rivetdeploy.worker.pool-size` (1 to 4 workers).
+## [2026-08-22T18:42:00Z]
+- Implemented Prometheus Metrics & Actuator Observability (Step 25).
+- Created `MetricsService` tracking `deployment_total`, `deployment_success_total`, `deployment_failure_total`, `active_workers`, `queue_wait_seconds`, `deployment_duration_seconds`, and `cancel_total`.
+- Configured Spring Actuator and Micrometer Prometheus export under `/actuator/prometheus`.

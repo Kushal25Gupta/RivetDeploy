@@ -74,4 +74,56 @@ public class DeploymentController {
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
+
+    @PostMapping("/deployments/{deploymentId}/rollback")
+    public ResponseEntity<?> rollback(
+            @AuthenticationPrincipal OAuth2User principal,
+            @PathVariable String deploymentId) {
+        
+        Optional<User> user = getAuthenticatedUser(principal);
+        if (user.isEmpty()) return ResponseEntity.status(401).build();
+
+        try {
+            var updatedProject = deploymentService.rollback(deploymentId, user.get().getId());
+            return ResponseEntity.ok(updatedProject);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(404).body(e.getMessage());
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(400).body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/deployments/{deploymentId}/events")
+    public ResponseEntity<List<com.rivetdeploy.backend.events.DeploymentEvent>> getEvents(
+            @AuthenticationPrincipal OAuth2User principal,
+            @PathVariable String deploymentId) {
+        
+        Optional<User> user = getAuthenticatedUser(principal);
+        if (user.isEmpty()) return ResponseEntity.status(401).build();
+
+        try {
+            List<com.rivetdeploy.backend.events.DeploymentEvent> events = deploymentService.getDeploymentEvents(deploymentId, user.get().getId());
+            return ResponseEntity.ok(events);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(404).build();
+        }
+    }
+
+    @PostMapping("/deployments/{deploymentId}/cancel")
+    public ResponseEntity<?> cancelDeployment(
+            @AuthenticationPrincipal OAuth2User principal,
+            @PathVariable String deploymentId) {
+        
+        Optional<User> user = getAuthenticatedUser(principal);
+        if (user.isEmpty()) return ResponseEntity.status(401).build();
+
+        try {
+            Deployment cancelled = deploymentService.cancelDeployment(deploymentId, user.get().getId());
+            return ResponseEntity.ok(cancelled);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(404).body(e.getMessage());
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(400).body(e.getMessage());
+        }
+    }
 }

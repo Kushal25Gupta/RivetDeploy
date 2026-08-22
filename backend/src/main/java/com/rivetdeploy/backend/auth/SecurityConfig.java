@@ -24,7 +24,7 @@ public class SecurityConfig {
         http
             .csrf(csrf -> csrf.disable()) // Disable CSRF for simplify API calls right now
             .authorizeHttpRequests(a -> a
-                .requestMatchers("/", "/error", "/api/webhooks/github").permitAll()
+                .requestMatchers("/", "/error", "/api/webhooks/github", "/ws/**", "/actuator/**").permitAll()
                 .anyRequest().authenticated()
             )
             .exceptionHandling(e -> e

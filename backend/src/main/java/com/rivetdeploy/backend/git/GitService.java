@@ -16,7 +16,7 @@ public class GitService {
         File workDir = new File("/tmp/rivetdeploy/builds/" + deploymentId);
         
         if (workDir.exists()) {
-            deleteDirectory(workDir);
+            cleanupWorkspace(workDir);
         }
         
         workDir.mkdirs();
@@ -58,11 +58,14 @@ public class GitService {
         return workDir;
     }
 
-    private boolean deleteDirectory(File directoryToBeDeleted) {
+    public boolean cleanupWorkspace(File directoryToBeDeleted) {
+        if (directoryToBeDeleted == null || !directoryToBeDeleted.exists()) {
+            return true;
+        }
         File[] allContents = directoryToBeDeleted.listFiles();
         if (allContents != null) {
             for (File file : allContents) {
-                deleteDirectory(file);
+                cleanupWorkspace(file);
             }
         }
         return directoryToBeDeleted.delete();

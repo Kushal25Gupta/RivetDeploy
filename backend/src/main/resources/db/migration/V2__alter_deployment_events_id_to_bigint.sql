@@ -1,0 +1,1 @@
+ALTER TABLE deployment_events ALTER COLUMN id TYPE BIGINT;

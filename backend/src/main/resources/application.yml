@@ -9,6 +9,10 @@ spring:
             clientId: ${GITHUB_CLIENT_ID:dummy-id}
             clientSecret: ${GITHUB_CLIENT_SECRET:dummy-secret}
             scope: read:user,user:email,repo
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/rivetdeploy}
     username: ${SPRING_DATASOURCE_USERNAME:rivetdeploy}
@@ -22,5 +26,33 @@ spring:
   flyway:
     enabled: true
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+    prometheus:
+      enabled: true
+
 server:
   port: 8081
+
+rivetdeploy:
+  storage:
+    type: ${RIVET_STORAGE_TYPE:local} # local or gcs
+    local-dir: ${RIVET_STORAGE_LOCAL_DIR:/tmp/rivetdeploy/artifacts}
+    gcs-bucket: ${RIVET_GCS_BUCKET:rivetdeploy-artifacts}
+  github:
+    webhook-secret: ${GITHUB_WEBHOOK_SECRET:dev-secret}
+  queue:
+    type: ${RIVET_QUEUE_TYPE:in-memory} # in-memory or redis
+  worker:
+    pool-size: ${RIVET_WORKER_POOL_SIZE:1}
+  retry:
+    max-attempts: 3
+    initial-delay-ms: 1000
+    max-delay-ms: 30000
+    multiplier: 2.0

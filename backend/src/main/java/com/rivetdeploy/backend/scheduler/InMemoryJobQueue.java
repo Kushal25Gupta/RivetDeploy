@@ -1,5 +1,6 @@
 package com.rivetdeploy.backend.scheduler;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -10,6 +11,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 @Component
+@ConditionalOnProperty(name = "rivetdeploy.queue.type", havingValue = "in-memory", matchIfMissing = true)
 public class InMemoryJobQueue implements JobQueue {
 
     private final BlockingQueue<Job> queue = new LinkedBlockingQueue<>();
