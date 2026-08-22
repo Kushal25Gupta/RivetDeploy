@@ -37,3 +37,6 @@ All notable changes to this project will be documented in this file.
 ## [2026-08-22T18:06:00Z]
 - Implemented `JobQueue` abstraction and `InMemoryJobQueue` implementation (Step 9).
 - Added `InMemoryJobQueueTest` to verify strict FIFO ordering and delayed requeuing logic.
+## [2026-08-22T18:09:00Z]
+- Implemented single Worker process (`WorkerService`) to sequentially claim and process deployment jobs from `JobQueue` (Step 10).
+- Verified `WorkerServiceTest` accurately simulates execution and records terminal deployment state.
