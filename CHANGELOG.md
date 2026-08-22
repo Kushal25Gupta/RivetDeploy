@@ -29,3 +29,11 @@ All notable changes to this project will be documented in this file.
 - Implemented Project CRUD with ownership checks (Step 7).
 - Created `Project` entity, `ProjectRepository`, and `ProjectService`.
 - Added `/api/projects` endpoints in `ProjectController`.
+## [2026-08-22T18:03:00Z]
+- Implemented Deployment entity and explicit state machine with transitions (`QUEUED` to `DEPLOYED` and terminals) (Step 8).
+- Added `DeploymentStateTest` to verify valid and invalid state transitions.
+- Created `DeploymentEvent` entity for log and event storage.
+- Created `DeploymentService` and `DeploymentController` for managing deployments.
+## [2026-08-22T18:06:00Z]
+- Implemented `JobQueue` abstraction and `InMemoryJobQueue` implementation (Step 9).
+- Added `InMemoryJobQueueTest` to verify strict FIFO ordering and delayed requeuing logic.

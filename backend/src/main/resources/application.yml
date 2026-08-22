@@ -1,6 +1,14 @@
 spring:
   application:
     name: backend
+  security:
+    oauth2:
+      client:
+        registration:
+          github:
+            clientId: ${GITHUB_CLIENT_ID:dummy-id}
+            clientSecret: ${GITHUB_CLIENT_SECRET:dummy-secret}
+            scope: read:user,user:email,repo
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/rivetdeploy}
     username: ${SPRING_DATASOURCE_USERNAME:rivetdeploy}
@@ -16,12 +24,3 @@ spring:
 
 server:
   port: 8081
-
-  security:
-    oauth2:
-      client:
-        registration:
-          github:
-            clientId: ${GITHUB_CLIENT_ID:dummy-id}
-            clientSecret: ${GITHUB_CLIENT_SECRET:dummy-secret}
-            scope: read:user,user:email,repo
