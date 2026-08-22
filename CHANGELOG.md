@@ -40,3 +40,15 @@ All notable changes to this project will be documented in this file.
 ## [2026-08-22T18:09:00Z]
 - Implemented single Worker process (`WorkerService`) to sequentially claim and process deployment jobs from `JobQueue` (Step 10).
 - Verified `WorkerServiceTest` accurately simulates execution and records terminal deployment state.
+## [2026-08-22T18:12:00Z]
+- Added `docker-java` dependency to integrate with Docker Engine API (Step 11).
+- Created `DockerService` to configure the connection to the host Docker daemon.
+- Created `DockerBuildService` to handle programmatic image building (`buildImageCmd`).
+- Created `GitService` to handle repository cloning (`ProcessBuilder` with `git clone`).
+- Integrated `GitService` and `DockerBuildService` into `WorkerService`, replacing the simulated Thread.sleep work with actual pipeline execution.
+- Updated `docker-compose.yml` to mount `/var/run/docker.sock` to the backend container to allow interaction with the host daemon.
+## [2026-08-22T18:15:00Z]
+- Implemented Nixpacks fallback build strategy (Step 12) in `DockerBuildService`.
+- Modified `backend/Dockerfile` to use Ubuntu (`eclipse-temurin:21-jre`) instead of Alpine, and added instructions to install `nixpacks`, `curl`, `git`, and `docker.io` so that the worker can build child images.
+- Configured `DockerBuildService` to check for `Dockerfile` in the root of the cloned repo. If absent, it shells out to `nixpacks build . --name {tag}`.
+- Updated `WorkerServiceTest` and `WorkerService` transitions to strictly follow `CLONING -> INSTALLING -> BUILDING -> UPLOADING -> DEPLOYED` flow as required by the state machine.

@@ -39,6 +39,8 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/rivetdeploy
       - SPRING_DATASOURCE_USERNAME=rivetdeploy
       - SPRING_DATASOURCE_PASSWORD=password
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       postgres:
         condition: service_healthy

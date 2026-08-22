@@ -34,7 +34,7 @@ public enum DeploymentState {
         }
 
         return switch (this) {
-            case QUEUED -> nextState == CLONING || nextState == CANCELLED;
+            case QUEUED -> nextState == CLONING || nextState == CANCELLED || nextState == SYSTEM_FAILED;
             case CLONING -> nextState == INSTALLING || nextState == CLONE_FAILED || nextState == SYSTEM_FAILED || nextState == CANCELLED;
             case INSTALLING -> nextState == BUILDING || nextState == INSTALL_FAILED || nextState == SYSTEM_FAILED || nextState == CANCELLED;
             case BUILDING -> nextState == UPLOADING || nextState == BUILD_FAILED || nextState == TIMEOUT || nextState == SYSTEM_FAILED || nextState == CANCELLED;

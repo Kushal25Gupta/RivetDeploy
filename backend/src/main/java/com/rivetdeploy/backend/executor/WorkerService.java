@@ -23,14 +23,19 @@ public class WorkerService {
     private final JobQueue jobQueue;
     private final DeploymentRepository deploymentRepository;
     private final TransactionTemplate transactionTemplate;
+    private final com.rivetdeploy.backend.git.GitService gitService;
+    private final com.rivetdeploy.backend.docker.DockerBuildService dockerBuildService;
     
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private volatile boolean isRunning = true;
 
-    public WorkerService(JobQueue jobQueue, DeploymentRepository deploymentRepository, TransactionTemplate transactionTemplate) {
+    public WorkerService(JobQueue jobQueue, DeploymentRepository deploymentRepository, TransactionTemplate transactionTemplate,
+                         com.rivetdeploy.backend.git.GitService gitService, com.rivetdeploy.backend.docker.DockerBuildService dockerBuildService) {
         this.jobQueue = jobQueue;
         this.deploymentRepository = deploymentRepository;
         this.transactionTemplate = transactionTemplate;
+        this.gitService = gitService;
+        this.dockerBuildService = dockerBuildService;
     }
 
     @PostConstruct
@@ -62,25 +67,30 @@ public class WorkerService {
 
     private void processJob(Job job) {
         try {
+            // Fetch deployment to get repo URL and commit SHA
+            Deployment deployment = deploymentRepository.findById(job.getDeploymentId())
+                    .orElseThrow(() -> new IllegalArgumentException("Deployment not found: " + job.getDeploymentId()));
+            String repoUrl = deployment.getProject().getRepositoryUrl();
+            String commitSha = deployment.getCommitSha();
+
             // Transition to CLONING
             updateDeploymentState(job.getDeploymentId(), DeploymentState.CLONING);
-            simulateWork(1000);
+            java.io.File workDir = gitService.cloneRepository(repoUrl, commitSha, job.getDeploymentId());
 
-            // Transition to INSTALLING
+            // Transition to INSTALLING (e.g. Nixpacks preparing dependencies)
             updateDeploymentState(job.getDeploymentId(), DeploymentState.INSTALLING);
-            simulateWork(1000);
 
             // Transition to BUILDING
             updateDeploymentState(job.getDeploymentId(), DeploymentState.BUILDING);
-            simulateWork(1000);
+            String imageTag = dockerBuildService.buildImage(job.getDeploymentId(), workDir);
 
+            // In Phase 1/2 we just consider BUILDING and DEPLOYED for simplicity, skipping UPLOADING to registry for now
             // Transition to UPLOADING
             updateDeploymentState(job.getDeploymentId(), DeploymentState.UPLOADING);
-            simulateWork(1000);
 
             // Transition to DEPLOYED
             updateDeploymentState(job.getDeploymentId(), DeploymentState.DEPLOYED);
-            log.info("Deployment {} completed successfully", job.getDeploymentId());
+            log.info("Deployment {} completed successfully with image {}", job.getDeploymentId(), imageTag);
 
         } catch (Exception e) {
             log.error("Failed to process deployment {}", job.getDeploymentId(), e);

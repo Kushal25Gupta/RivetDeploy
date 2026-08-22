@@ -32,6 +32,12 @@ class WorkerServiceTest {
     @Mock
     private TransactionTemplate transactionTemplate;
 
+    @Mock
+    private com.rivetdeploy.backend.git.GitService gitService;
+
+    @Mock
+    private com.rivetdeploy.backend.docker.DockerBuildService dockerBuildService;
+
     private WorkerService workerService;
 
     @BeforeEach
@@ -45,22 +51,30 @@ class WorkerServiceTest {
             return null;
         }).when(transactionTemplate).executeWithoutResult(any());
 
-        workerService = new WorkerService(jobQueue, deploymentRepository, transactionTemplate);
+        workerService = new WorkerService(jobQueue, deploymentRepository, transactionTemplate, gitService, dockerBuildService);
     }
 
     @Test
     void testWorkerProcessesJobSuccessfully() throws InterruptedException {
         String deploymentId = "dpl_123";
         Job job = new Job(deploymentId);
+        
+        com.rivetdeploy.backend.project.Project project = new com.rivetdeploy.backend.project.Project();
+        project.setRepositoryUrl("https://github.com/dummy/repo.git");
+        
         Deployment deployment = new Deployment();
         deployment.setId(deploymentId);
+        deployment.setProject(project);
+        deployment.setCommitSha("HEAD");
         deployment.setStatus(DeploymentState.QUEUED);
 
         CountDownLatch latch = new CountDownLatch(1);
 
+        java.util.concurrent.atomic.AtomicBoolean jobReturned = new java.util.concurrent.atomic.AtomicBoolean(false);
+
         when(jobQueue.dequeue()).thenAnswer(invocation -> {
-            // First call returns the job, second call blocks until latch or interrupted
-            if (latch.getCount() == 1) {
+            if (!jobReturned.get()) {
+                jobReturned.set(true);
                 return job;
             }
             Thread.sleep(10000); // block subsequent calls
@@ -77,6 +91,11 @@ class WorkerServiceTest {
             }
             return saved;
         });
+
+        try {
+            when(gitService.cloneRepository(any(), any(), any())).thenReturn(new java.io.File("/tmp/dummy"));
+            when(dockerBuildService.buildImage(any(), any())).thenReturn("rivetdeploy-app:dpl_123");
+        } catch (Exception e) {}
 
         workerService.startWorker();
 
