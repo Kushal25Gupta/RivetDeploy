@@ -113,3 +113,9 @@ All notable changes to this project will be documented in this file.
 - Began Phase 2: Google Cloud Infrastructure Provisioning.
 - Authored initial Terraform scripts (`infra/terraform/main.tf`, `variables.tf`, `outputs.tf`) targeting GCP's "Always Free" tier.
 - Designed architecture integrating Cloud Run (API) and an `e2-micro` Compute Engine VM (DB/Worker) using Direct VPC Egress for zero-cost internal network communication.
+## [2026-08-23T10:09:00Z]
+- Pivoted Phase 2 infrastructure from Google Cloud Platform to Amazon Web Services (AWS) by user request.
+- Removed GCP Terraform files.
+- Authored AWS Free-Tier Terraform scripts mapping to the identical architecture:
+  - Replaced Cloud Storage with AWS S3 for immutable artifacts.
+  - Replaced Cloud Run/Compute Engine hybrid with a single `t2.micro` EC2 instance handling the API, Postgres, Redis, and Worker via a 2GB swap file to fit within 1GB RAM constraints.

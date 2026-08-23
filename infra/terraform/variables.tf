@@ -1,16 +1,11 @@
-variable "project_id" {
+variable "aws_region" {
   type        = string
-  description = "The GCP Project ID to deploy resources into"
+  default     = "us-east-1"
+  description = "AWS Region for deployment"
 }
 
-variable "region" {
+variable "project_name" {
   type        = string
-  default     = "us-central1"
-  description = "GCP Region (us-central1 is Free Tier eligible)"
-}
-
-variable "zone" {
-  type        = string
-  default     = "us-central1-a"
-  description = "GCP Zone"
+  default     = "rivetdeploy"
+  description = "Base name for AWS resources"
 }

@@ -1,19 +1,14 @@
-output "api_url" {
-  value       = google_cloud_run_v2_service.api_service.uri
-  description = "The public URL of the Spring Boot API hosted on Cloud Run"
+output "ec2_public_ip" {
+  value       = aws_instance.worker_node.public_ip
+  description = "The public IP of your EC2 instance (API, DB, Redis, Worker)"
 }
 
 output "artifact_bucket_name" {
-  value       = google_storage_bucket.artifacts_bucket.name
-  description = "The GCS bucket holding the static site HTML files"
+  value       = aws_s3_bucket.artifacts_bucket.bucket
+  description = "The S3 bucket holding the static site HTML files"
 }
 
-output "worker_internal_ip" {
-  value       = google_compute_instance.worker_node.network_interface[0].network_ip
-  description = "The internal IP of the Worker VM (used by Cloud Run to connect to DB/Redis)"
-}
-
-output "worker_public_ip" {
-  value       = google_compute_instance.worker_node.network_interface[0].access_config[0].nat_ip
-  description = "The public IP of the Worker VM (for SSH access if needed)"
+output "artifact_bucket_domain" {
+  value       = aws_s3_bucket.artifacts_bucket.bucket_domain_name
+  description = "The domain name of the S3 bucket to serve websites"
 }

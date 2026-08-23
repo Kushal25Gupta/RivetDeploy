@@ -1,77 +1,122 @@
 terraform {
   required_providers {
-    google = {
-      source  = "hashicorp/google"
+    aws = {
+      source  = "hashicorp/aws"
       version = "~> 5.0"
     }
   }
 }
 
-provider "google" {
-  project = var.project_id
-  region  = var.region
-  zone    = var.zone
+provider "aws" {
+  region = var.aws_region
 }
 
-# 1. Cloud Storage Bucket (For Immutable Static Artifacts)
-resource "google_storage_bucket" "artifacts_bucket" {
-  name          = "${var.project_id}-rivetdeploy-artifacts"
-  location      = "US" # US multi-region is Free Tier eligible (5GB)
+# 1. S3 Bucket (For Immutable Static Artifacts)
+resource "aws_s3_bucket" "artifacts_bucket" {
+  bucket_prefix = "${var.project_name}-artifacts-"
   force_destroy = true
-  
-  uniform_bucket_level_access = true
+}
 
-  cors {
-    origin          = ["*"]
-    method          = ["GET", "HEAD", "OPTIONS"]
-    response_header = ["*"]
-    max_age_seconds = 3600
+resource "aws_s3_bucket_public_access_block" "public_access" {
+  bucket = aws_s3_bucket.artifacts_bucket.id
+
+  block_public_acls       = false
+  block_public_policy     = false
+  ignore_public_acls      = false
+  restrict_public_buckets = false
+}
+
+resource "aws_s3_bucket_policy" "allow_public_read" {
+  bucket = aws_s3_bucket.artifacts_bucket.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "PublicReadGetObject"
+        Effect    = "Allow"
+        Principal = "*"
+        Action    = "s3:GetObject"
+        Resource  = "${aws_s3_bucket.artifacts_bucket.arn}/*"
+      },
+    ]
+  })
+  depends_on = [aws_s3_bucket_public_access_block.public_access]
+}
+
+# 2. Security Group for EC2
+resource "aws_security_group" "allow_web_ssh" {
+  name        = "${var.project_name}-sg"
+  description = "Allow SSH and API traffic"
+
+  ingress {
+    description = "SSH from anywhere"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "Spring Boot API"
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 }
 
-# Make Bucket Publicly Readable so sites can be accessed
-resource "google_storage_bucket_iam_member" "public_read" {
-  bucket = google_storage_bucket.artifacts_bucket.name
-  role   = "roles/storage.objectViewer"
-  member = "allUsers"
+# Find latest Amazon Linux 2023 AMI
+data "aws_ami" "amazon_linux_2023" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["al2023-ami-2023.*-x86_64"]
+  }
 }
 
-# 2. Compute Engine VM (For Postgres, Redis, and Docker Build Worker)
-# We use e2-micro to stay in the Always Free tier.
-resource "google_compute_instance" "worker_node" {
-  name         = "rivetdeploy-worker-node"
-  machine_type = "e2-micro"
-  zone         = var.zone
+# 3. EC2 Instance (Free Tier t2.micro)
+resource "aws_instance" "worker_node" {
+  ami           = data.aws_ami.amazon_linux_2023.id
+  instance_type = "t2.micro" # Free Tier eligible
 
-  tags = ["ssh", "internal-db-redis"]
+  vpc_security_group_ids = [aws_security_group.allow_web_ssh.id]
 
-  boot_disk {
-    initialize_params {
-      image = "debian-cloud/debian-12"
-      size  = 30 # 30 GB standard disk is Free Tier eligible
-      type  = "pd-standard"
-    }
+  # 30 GB EBS volume is Free Tier eligible
+  root_block_device {
+    volume_size = 30
+    volume_type = "gp3"
   }
 
-  network_interface {
-    network = "default"
-    access_config {
-      # Ephemeral public IP required for internet access (apt-get, docker pull)
-    }
-  }
-
-  # Startup script installs Docker and starts the databases
-  metadata_startup_script = <<-EOT
+  user_data = <<-EOF
     #!/bin/bash
-    apt-get update
-    apt-get install -y ca-certificates curl gnupg
-    install -m 0755 -d /etc/apt/keyrings
-    curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-    chmod a+r /etc/apt/keyrings/docker.gpg
-    echo "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-    apt-get update
-    apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    # 1. Create a 2GB Swap file so the 1GB RAM VM doesn't crash during Docker builds
+    dd if=/dev/zero of=/swapfile bs=128M count=16
+    chmod 600 /swapfile
+    mkswap /swapfile
+    swapon /swapfile
+    echo "/swapfile swap swap defaults 0 0" >> /etc/fstab
 
+    # 2. Install Docker
+    dnf update -y
+    dnf install -y docker
+    systemctl enable docker
+    systemctl start docker
+    usermod -aG docker ec2-user
+
+    # 3. Install Docker Compose
+    curl -SL https://github.com/docker/compose/releases/download/v2.24.5/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
+    chmod +x /usr/local/bin/docker-compose
+
+    # 4. Start Postgres and Redis
     mkdir -p /opt/rivetdeploy
     cat << 'YML' > /opt/rivetdeploy/docker-compose.yml
     services:
@@ -86,6 +131,7 @@ resource "google_compute_instance" "worker_node" {
         restart: always
         volumes:
           - pgdata:/var/lib/postgresql/data
+      
       redis:
         image: redis:7-alpine
         ports:
@@ -97,88 +143,12 @@ resource "google_compute_instance" "worker_node" {
       pgdata:
       redisdata:
     YML
+
     cd /opt/rivetdeploy
-    docker compose up -d
-  EOT
-}
+    /usr/local/bin/docker-compose up -d
+  EOF
 
-# Firewall rule to allow SSH
-resource "google_compute_firewall" "allow_ssh" {
-  name    = "rivetdeploy-allow-ssh"
-  network = "default"
-
-  allow {
-    protocol = "tcp"
-    ports    = ["22"]
+  tags = {
+    Name = "${var.project_name}-node"
   }
-  source_ranges = ["0.0.0.0/0"]
-}
-
-# Firewall rule to allow Cloud Run internal connections to Postgres/Redis
-resource "google_compute_firewall" "allow_internal" {
-  name    = "rivetdeploy-allow-internal"
-  network = "default"
-
-  allow {
-    protocol = "tcp"
-    ports    = ["5432", "6379"]
-  }
-  source_ranges = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
-}
-
-# 3. Cloud Run Service (For the Spring Boot API)
-resource "google_cloud_run_v2_service" "api_service" {
-  name     = "rivetdeploy-api"
-  location = var.region
-  
-  deletion_protection = false
-
-  template {
-    containers {
-      # Placeholder until we push the real backend container
-      image = "us-docker.pkg.dev/cloudrun/container/hello" 
-      
-      env {
-        name  = "SPRING_DATASOURCE_URL"
-        value = "jdbc:postgresql://${google_compute_instance.worker_node.network_interface[0].network_ip}:5432/rivetdeploy"
-      }
-      env {
-        name  = "SPRING_DATASOURCE_USERNAME"
-        value = "rivetuser"
-      }
-      env {
-        name  = "SPRING_DATASOURCE_PASSWORD"
-        value = "supersecretpassword"
-      }
-      env {
-        name  = "SPRING_REDIS_HOST"
-        value = google_compute_instance.worker_node.network_interface[0].network_ip
-      }
-      env {
-        name  = "RIVETDEPLOY_STORAGE_TYPE"
-        value = "gcs"
-      }
-      env {
-        name  = "RIVETDEPLOY_STORAGE_GCS_BUCKET"
-        value = google_storage_bucket.artifacts_bucket.name
-      }
-    }
-    
-    # Direct VPC Egress allows Cloud Run to talk to the VM's internal IP for free!
-    vpc_access {
-      network_interfaces {
-        network = "default"
-      }
-      egress = "PRIVATE_RANGES_ONLY"
-    }
-  }
-}
-
-# Make Cloud Run Publicly Accessible
-resource "google_cloud_run_service_iam_member" "api_public" {
-  location = google_cloud_run_v2_service.api_service.location
-  project  = google_cloud_run_v2_service.api_service.project
-  service  = google_cloud_run_v2_service.api_service.name
-  role     = "roles/run.invoker"
-  member   = "allUsers"
 }
