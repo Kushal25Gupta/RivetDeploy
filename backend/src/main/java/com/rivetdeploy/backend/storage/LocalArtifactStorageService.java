@@ -29,11 +29,11 @@ public class LocalArtifactStorageService implements ArtifactStorageService {
     }
 
     @Override
-    public String uploadArtifacts(String projectId, String deploymentId, File sourceDir) throws IOException {
+    public String uploadArtifacts(String projectId, String deploymentId, File sourceDir, String configuredOutputDir) throws IOException {
         Path targetDir = baseStoragePath.resolve("projects").resolve(projectId).resolve("deployments").resolve(deploymentId);
         Files.createDirectories(targetDir);
 
-        File outputDir = resolveOutputDirectory(sourceDir);
+        File outputDir = resolveOutputDirectory(sourceDir, configuredOutputDir);
         log.info("Copying build artifacts from {} to immutable prefix: {}", outputDir.getAbsolutePath(), targetDir.toAbsolutePath());
 
         copyDirectory(outputDir.toPath(), targetDir);
@@ -63,7 +63,16 @@ public class LocalArtifactStorageService implements ArtifactStorageService {
         log.info("Activated deployment {} for project {}: {} -> {}", deploymentId, projectId, currentLink, deploymentPath);
     }
 
-    private File resolveOutputDirectory(File root) {
+    private File resolveOutputDirectory(File root, String configuredOutputDir) {
+        if (configuredOutputDir != null && !configuredOutputDir.trim().isEmpty()) {
+            File explicitDir = new File(root, configuredOutputDir);
+            if (explicitDir.exists() && explicitDir.isDirectory()) {
+                return explicitDir;
+            } else {
+                log.warn("Configured output directory '{}' does not exist in build output. Falling back to defaults.", configuredOutputDir);
+            }
+        }
+        
         String[] candidateDirs = {"dist", "build", "out", "public"};
         for (String candidate : candidateDirs) {
             File dir = new File(root, candidate);

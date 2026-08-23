@@ -37,6 +37,7 @@ public class SecurityConfig {
                 .defaultSuccessUrl("http://localhost:5173/dashboard", true)
             )
             .logout(l -> l
+                .logoutRequestMatcher(new org.springframework.security.web.util.matcher.AntPathRequestMatcher("/logout", "GET"))
                 .logoutSuccessUrl("http://localhost:5173/").permitAll()
             );
 

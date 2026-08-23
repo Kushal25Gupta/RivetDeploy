@@ -8,6 +8,7 @@ import java.time.Instant;
 
 @Entity
 @Table(name = "projects")
+@com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Project {
 
     @Id

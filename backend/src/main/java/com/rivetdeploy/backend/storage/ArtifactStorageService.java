@@ -10,7 +10,7 @@ public interface ArtifactStorageService {
      * 
      * @return The canonical URI/path of the stored artifact
      */
-    String uploadArtifacts(String projectId, String deploymentId, File sourceDir) throws IOException;
+    String uploadArtifacts(String projectId, String deploymentId, File sourceDir, String configuredOutputDir) throws IOException;
 
     /**
      * Points the active deployment for the project to the given deploymentId

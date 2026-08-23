@@ -103,4 +103,39 @@ public class DockerBuildService {
             throw new RuntimeException("Nixpacks build failed", e);
         }
     }
+
+    public void extractArtifacts(String imageTag, String containerPath, File hostDestinationDir) {
+        DockerClient dockerClient = dockerService.getClient();
+        String containerId = null;
+        try {
+            log.info("Creating temporary container from image {} to extract {}", imageTag, containerPath);
+            containerId = dockerClient.createContainerCmd(imageTag).exec().getId();
+            
+            log.info("Extracting {} from container {} to {}", containerPath, containerId, hostDestinationDir.getAbsolutePath());
+            try (java.io.InputStream tarStream = dockerClient.copyArchiveFromContainerCmd(containerId, containerPath).exec()) {
+                org.apache.commons.compress.archivers.tar.TarArchiveInputStream tarInput = new org.apache.commons.compress.archivers.tar.TarArchiveInputStream(tarStream);
+                org.apache.commons.compress.archivers.tar.TarArchiveEntry entry;
+                while ((entry = tarInput.getNextEntry()) != null) {
+                    File dest = new File(hostDestinationDir, entry.getName());
+                    if (entry.isDirectory()) {
+                        dest.mkdirs();
+                    } else {
+                        dest.getParentFile().mkdirs();
+                        try (java.io.OutputStream out = new java.io.FileOutputStream(dest)) {
+                            org.apache.commons.compress.utils.IOUtils.copy(tarInput, out);
+                        }
+                    }
+                }
+            }
+            log.info("Extraction complete.");
+        } catch (Exception e) {
+            log.error("Failed to extract artifacts from container", e);
+            throw new RuntimeException("Failed to extract artifacts from container", e);
+        } finally {
+            if (containerId != null) {
+                dockerClient.removeContainerCmd(containerId).withForce(true).exec();
+            }
+        }
+    }
+
 }

@@ -143,7 +143,26 @@ public class WorkerService {
 
             // Transition to UPLOADING
             updateDeploymentState(job.getDeploymentId(), DeploymentState.UPLOADING);
-            String artifactLocation = artifactStorageService.uploadArtifacts(deployment.getProject().getId(), job.getDeploymentId(), workDir);
+            
+            java.io.File extractedDir = new java.io.File(workDir, ".rivetdeploy-extracted");
+            extractedDir.mkdirs();
+            
+            String containerOut = "";
+            if (containerOut == null || containerOut.isEmpty()) {
+                containerOut = "/usr/share/nginx/html"; // default for nginx base images
+            }
+            
+            String baseName = new java.io.File(containerOut).getName();
+            try {
+                dockerBuildService.extractArtifacts(imageTag, containerOut, extractedDir);
+                log.info("Extracted artifacts from image {} path {} to {}", imageTag, containerOut, extractedDir.getAbsolutePath());
+            } catch (Exception e) {
+                log.warn("Failed to extract artifacts from container path {}, falling back to source dir upload: {}", containerOut, e.getMessage());
+                extractedDir = workDir;
+                baseName = "";
+            }
+            
+            String artifactLocation = artifactStorageService.uploadArtifacts(deployment.getProject().getId(), job.getDeploymentId(), extractedDir, baseName);
 
             // Update deployment with artifact location
             transactionTemplate.executeWithoutResult(status -> {

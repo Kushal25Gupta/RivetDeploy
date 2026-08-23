@@ -30,7 +30,7 @@ public class GcsArtifactStorageService implements ArtifactStorageService {
     }
 
     @Override
-    public String uploadArtifacts(String projectId, String deploymentId, File sourceDir) throws IOException {
+    public String uploadArtifacts(String projectId, String deploymentId, File sourceDir, String configuredOutputDir) throws IOException {
         String prefix = String.format("projects/%s/deployments/%s/", projectId, deploymentId);
         File outputDir = resolveOutputDirectory(sourceDir);
         log.info("Uploading artifacts from {} to GCS gs://{}/{}", outputDir.getAbsolutePath(), bucketName, prefix);
