@@ -55,7 +55,12 @@ public class DeploymentService {
         deployment.setCreatedAt(Instant.now());
 
         Deployment saved = deploymentRepository.save(deployment);
-        jobQueue.enqueue(new Job(saved.getId()));
+        org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(new org.springframework.transaction.support.TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                jobQueue.enqueue(new Job(saved.getId()));
+            }
+        });
         eventLoggerService.logEvent(saved.getId(), "QUEUED", "Deployment queued for execution.");
         metricsService.incrementDeploymentTotal();
         return saved;

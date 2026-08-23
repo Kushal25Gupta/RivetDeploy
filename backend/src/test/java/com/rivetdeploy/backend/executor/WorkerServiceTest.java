@@ -128,7 +128,7 @@ class WorkerServiceTest {
         }).when(jobQueue).acknowledge(any());
 
         try {
-            when(gitService.cloneRepository(any(), any(), any())).thenReturn(new java.io.File("/tmp/dummy"));
+            when(gitService.cloneRepository(any(), any(), any(), any())).thenReturn(new java.io.File("/tmp/dummy"));
             when(dockerBuildService.buildImage(any(), any())).thenReturn("rivetdeploy-app:dpl_123");
             when(artifactStorageService.uploadArtifacts(any(), any(), any())).thenReturn("projects/prj_123/deployments/dpl_123");
             when(projectRepository.findById(any())).thenReturn(Optional.of(project));
@@ -171,7 +171,7 @@ class WorkerServiceTest {
         });
 
         when(deploymentRepository.findById(deploymentId)).thenReturn(Optional.of(deployment));
-        when(gitService.cloneRepository(any(), any(), any()))
+        when(gitService.cloneRepository(any(), any(), any(), any()))
                 .thenThrow(new TransientFailureException(FailureType.TRANSIENT_NETWORK, "Connection timeout"));
 
         doAnswer(invocation -> {
@@ -216,7 +216,7 @@ class WorkerServiceTest {
         });
 
         when(deploymentRepository.findById(deploymentId)).thenReturn(Optional.of(deployment));
-        when(gitService.cloneRepository(any(), any(), any())).thenReturn(new java.io.File("/tmp/dummy"));
+        when(gitService.cloneRepository(any(), any(), any(), any())).thenReturn(new java.io.File("/tmp/dummy"));
         when(dockerBuildService.buildImage(any(), any()))
                 .thenThrow(new PermanentFailureException(FailureType.BUILD_COMMAND_FAILED, "Build exited with status 1"));
 

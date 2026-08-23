@@ -12,7 +12,7 @@ public class GitService {
 
     private static final Logger log = LoggerFactory.getLogger(GitService.class);
 
-    public File cloneRepository(String repositoryUrl, String commitSha, String deploymentId) throws IOException, InterruptedException {
+    public File cloneRepository(String repositoryUrl, String branch, String commitSha, String deploymentId) throws IOException, InterruptedException {
         File workDir = new File("/tmp/rivetdeploy/builds/" + deploymentId);
         
         if (workDir.exists()) {
@@ -25,7 +25,7 @@ public class GitService {
 
         // Shallow clone single branch
         ProcessBuilder clonePb = new ProcessBuilder(
-                "git", "clone", "--depth", "1", repositoryUrl, "."
+                "git", "clone", "--depth", "1", "--branch", branch, repositoryUrl, "."
         );
         clonePb.directory(workDir);
         clonePb.inheritIO();

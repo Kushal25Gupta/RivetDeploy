@@ -1,6 +1,7 @@
 package com.rivetdeploy.backend.executor;
 
 import com.rivetdeploy.backend.deployment.Deployment;
+import com.rivetdeploy.backend.project.Project;
 import com.rivetdeploy.backend.deployment.DeploymentRepository;
 import com.rivetdeploy.backend.deployment.DeploymentState;
 import com.rivetdeploy.backend.scheduler.Job;
@@ -114,12 +115,14 @@ public class WorkerService {
             // Fetch deployment to get repo URL and commit SHA
             Deployment deployment = deploymentRepository.findById(job.getDeploymentId())
                     .orElseThrow(() -> new IllegalArgumentException("Deployment not found: " + job.getDeploymentId()));
-            String repoUrl = deployment.getProject().getRepositoryUrl();
+            Project project = projectRepository.findById(deployment.getProject().getId()).orElseThrow();
+            String repoUrl = project.getRepositoryUrl();
             String commitSha = deployment.getCommitSha();
 
             // Transition to CLONING
             updateDeploymentState(job.getDeploymentId(), DeploymentState.CLONING);
-            workDir = gitService.cloneRepository(repoUrl, commitSha, job.getDeploymentId());
+            String branch = project.getBranch();
+            workDir = gitService.cloneRepository(repoUrl, branch != null ? branch : "main", commitSha, job.getDeploymentId());
 
             if (cancellationManager.isCancelled(job.getDeploymentId())) {
                 log.info("Deployment {} was cancelled after clone", job.getDeploymentId());
