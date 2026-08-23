@@ -130,3 +130,13 @@ All notable changes to this project will be documented in this file.
   - Replaced Cloud Run/Compute Engine hybrid with a single `t2.micro` EC2 instance handling the API, Postgres, Redis, and Worker via a 2GB swap file to fit within 1GB RAM constraints.
 ## [2026-08-23T10:18:00Z]
 - Updated `README.md` with streamlined local deployment instructions utilizing `run.sh` and Docker Compose.
+## [2026-08-23T14:30:00Z]
+- Implemented Dynamic Subdomain Proxying (Wildcard DNS) in `infra/nginx/nginx.conf` via `server_name` regex matching `~^(?<project_id>[0-9a-fA-F\-]{36})\.`.
+- Updated React dashboard to dynamically generate project links using `window.location.host` instead of local subpaths.
+- Fixed Nginx syntax errors related to regex curly braces.
+## [2026-08-23T19:30:00Z]
+- Implemented Project Management controls (Suspend, Resume, Delete).
+- Created Flyway migration `V4__add_is_suspended_to_projects.sql` to track project suspension status without dropping existing rows.
+- Built backend APIs for `DELETE /api/projects/{id}`, `POST /api/projects/{id}/suspend`, and `POST /api/projects/{id}/resume`.
+- Modified `SiteController` to return `403 Forbidden` for suspended project artifacts to block incoming routing traffic instantly.
+- Added a `Danger Zone` management UI section directly into the React dashboard's `ProjectDetail.tsx`.
