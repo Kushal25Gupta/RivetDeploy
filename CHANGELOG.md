@@ -99,3 +99,13 @@ All notable changes to this project will be documented in this file.
 - Implemented Prometheus Metrics & Actuator Observability (Step 25).
 - Created `MetricsService` tracking `deployment_total`, `deployment_success_total`, `deployment_failure_total`, `active_workers`, `queue_wait_seconds`, `deployment_duration_seconds`, and `cancel_total`.
 - Configured Spring Actuator and Micrometer Prometheus export under `/actuator/prometheus`.
+## [2026-08-23T09:15:00Z]
+- Completed and validated Phase 1 Core Engine locally via complete end-to-end testing.
+- Fixed static artifact extraction to pull compiled `/usr/share/nginx/html` assets out of Docker containers in `DockerBuildService` using Docker Java API and `commons-compress`.
+- Re-enabled and secured GitHub OAuth flow by properly restoring `SecurityConfig` and removing local bypasses.
+- Updated `docker-compose.yml` to inject real `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` via a `.env` file.
+- Fixed React frontend blank screen on subpaths by explicitly setting `base: './'` in `vite.config.ts`.
+- Fixed Spring Security logout 404 by configuring `.logoutRequestMatcher` to accept `GET` requests from the frontend.
+- Fixed a `frontend/.gitignore` bug that accidentally ignored `TerminalViewer.tsx` during GitHub builds.
+- Upgraded root `Dockerfile` to `node:20-alpine` and configured it to compile the React dashboard for self-hosted deployments.
+- Cleaned up obsolete local API testing scripts and temporary Python scratchpad files.
