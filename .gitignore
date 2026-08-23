@@ -56,3 +56,7 @@ infra/terraform/key.json
 rivetdeploy-*.json
 infra/terraform/.terraform*
 infra/terraform/.terraform*
+rivetdeploy_accessKeys.csv
+*.tfstate
+*.tfstate.*
+tfplan

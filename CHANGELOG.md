@@ -6,6 +6,10 @@ All notable changes to this project will be documented in this file.
 - Initialized `CHANGELOG.md` to track all project changes.
 - Read and analyzed the `RivetDeploy_JetSki_Build_Specification.doc`.
 - Drafted initial implementation plan for Phase 1 based on the JetSki Execution Checklist.
+- Provisioned AWS infrastructure (EC2 + S3) using Terraform.
+- Updated `SecurityConfig.java` to use a configurable redirect URL after OAuth login.
+- Added `RIVETDEPLOY_FRONTEND_URL` to `docker-compose.yml` to route back to Nginx on port 8082.
+- Added `rivetdeploy_accessKeys.csv` to `.gitignore` to prevent credential leaks.
 ## [2026-08-22T17:45:00Z]
 - Created monorepo and documentation skeleton (`backend`, `worker`, `frontend`, `infra`, `tests`, `docs` directories).
 - Added initial `README.md` and empty `docker-compose.yml`.

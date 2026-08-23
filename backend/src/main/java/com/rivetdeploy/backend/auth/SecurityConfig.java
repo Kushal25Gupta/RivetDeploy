@@ -1,5 +1,6 @@
 package com.rivetdeploy.backend.auth;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -14,6 +15,9 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 public class SecurityConfig {
 
     private final CustomOAuth2UserService customOAuth2UserService;
+
+    @Value("${rivetdeploy.frontend.url:http://localhost:5173}")
+    private String frontendUrl;
 
     public SecurityConfig(CustomOAuth2UserService customOAuth2UserService) {
         this.customOAuth2UserService = customOAuth2UserService;
@@ -34,11 +38,11 @@ public class SecurityConfig {
                 .userInfoEndpoint(userInfo -> userInfo
                     .userService(customOAuth2UserService)
                 )
-                .defaultSuccessUrl("http://localhost:5173/dashboard", true)
+                .defaultSuccessUrl(frontendUrl + "/dashboard", true)
             )
             .logout(l -> l
                 .logoutRequestMatcher(new org.springframework.security.web.util.matcher.AntPathRequestMatcher("/logout", "GET"))
-                .logoutSuccessUrl("http://localhost:5173/").permitAll()
+                .logoutSuccessUrl(frontendUrl + "/").permitAll()
             );
 
         return http.build();
