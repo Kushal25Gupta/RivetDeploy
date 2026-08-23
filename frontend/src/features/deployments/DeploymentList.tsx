@@ -156,7 +156,7 @@ export const DeploymentList: React.FC<DeploymentListProps> = ({ deployments, pro
 
                   {isCurrentActive && (
                     <a
-                      href={`/sites/projects/${project.id}/current/`}
+                      href={`http://${project.id}.${window.location.host}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center space-x-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-950 text-emerald-300 border border-emerald-800 hover:bg-emerald-900 transition"

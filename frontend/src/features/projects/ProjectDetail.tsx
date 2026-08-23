@@ -140,7 +140,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
               </span>
             </div>
             <a
-              href={`/sites/projects/${project.id}/current/`}
+              href={project ? `http://${project.id}.${window.location.host}` : ''}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center space-x-1.5 text-sm font-semibold text-emerald-400 hover:text-emerald-300 transition"
