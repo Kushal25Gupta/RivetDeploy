@@ -12,3 +12,18 @@ RivetDeploy is a self-hosted deployment orchestration platform designed to turn 
 - `infra/`: Infrastructure definitions (Terraform, Nginx).
 - `tests/`: Integration, failure injection, and load tests.
 - `docs/`: Architecture Decision Records (ADRs) and documentation.
+
+## How to Run Locally
+
+You can run the entire RivetDeploy platform (Frontend, Backend, Database, Redis, and Nginx) using a single Docker Compose command.
+
+1. Ensure Docker is installed and running on your machine.
+2. Make the startup script executable:
+   ```bash
+   chmod +x run.sh
+   ```
+3. Run the startup script:
+   ```bash
+   ./run.sh
+   ```
+4. Access the React Dashboard at: [http://localhost:8082](http://localhost:8082)

@@ -119,3 +119,5 @@ All notable changes to this project will be documented in this file.
 - Authored AWS Free-Tier Terraform scripts mapping to the identical architecture:
   - Replaced Cloud Storage with AWS S3 for immutable artifacts.
   - Replaced Cloud Run/Compute Engine hybrid with a single `t2.micro` EC2 instance handling the API, Postgres, Redis, and Worker via a 2GB swap file to fit within 1GB RAM constraints.
+## [2026-08-23T10:18:00Z]
+- Updated `README.md` with streamlined local deployment instructions utilizing `run.sh` and Docker Compose.
