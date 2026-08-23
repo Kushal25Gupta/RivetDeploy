@@ -1,0 +1,7 @@
+# Ignore secrets and local dev files from Docker context
+infra/terraform/key.json
+rivetdeploy-*.json
+.env
+.git
+node_modules/
+target/

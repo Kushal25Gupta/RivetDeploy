@@ -50,3 +50,7 @@ lerna-debug.log*
 .DS_Store
 Thumbs.db
 k6
+
+# GCP Secrets
+infra/terraform/key.json
+rivetdeploy-*.json
