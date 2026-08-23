@@ -30,7 +30,9 @@ services:
       retries: 5
 
   nginx:
-    image: nginx:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: rivetdeploy-nginx
     ports:
       - "8082:80"
