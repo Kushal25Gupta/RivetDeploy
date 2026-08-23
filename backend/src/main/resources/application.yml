@@ -26,6 +26,9 @@ spring:
   flyway:
     enabled: true
 
+  session:
+    store-type: redis
+
 management:
   endpoints:
     web:
@@ -39,6 +42,7 @@ management:
 
 server:
   port: 8081
+  forward-headers-strategy: native
 
 rivetdeploy:
   storage:

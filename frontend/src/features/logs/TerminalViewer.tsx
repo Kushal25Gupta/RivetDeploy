@@ -32,7 +32,7 @@ export const TerminalViewer: React.FC<TerminalViewerProps> = ({ deploymentId, is
     if (isTerminal) return; // No need to stream if already finished
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.hostname}:8081/ws/deployments/${deploymentId}`;
+    const wsUrl = `${protocol}//${window.location.host}/ws/deployments/${deploymentId}`;
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {

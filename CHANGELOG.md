@@ -10,6 +10,11 @@ All notable changes to this project will be documented in this file.
 - Updated `SecurityConfig.java` to use a configurable redirect URL after OAuth login.
 - Added `RIVETDEPLOY_FRONTEND_URL` to `docker-compose.yml` to route back to Nginx on port 8082.
 - Added `rivetdeploy_accessKeys.csv` to `.gitignore` to prevent credential leaks.
+- Replaced Google Cloud Storage with AWS S3 backend implementation (`S3ArtifactStorageService.java`).
+- Created `SiteController.java` to dynamically proxy deployment sites directly from the S3 bucket to Nginx (`/sites/`).
+- Provisioned an SSH Key (`rivetdeploy-key`) via Terraform to allow remote code deployments.
+- Created `deploy.sh` script to securely `rsync` the monorepo to the EC2 instance and run `docker compose up --build`.
+- Successfully deployed the application to the AWS EC2 instance (`44.208.26.35`), exposing Nginx publicly on port 80 using `nip.io`.
 ## [2026-08-22T17:45:00Z]
 - Created monorepo and documentation skeleton (`backend`, `worker`, `frontend`, `infra`, `tests`, `docs` directories).
 - Added initial `README.md` and empty `docker-compose.yml`.

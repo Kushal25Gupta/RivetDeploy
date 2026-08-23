@@ -22,11 +22,11 @@ export function App() {
   }, []);
 
   const handleLogin = () => {
-    window.location.href = 'http://localhost:8081/oauth2/authorization/github';
+    window.location.href = '/oauth2/authorization/github';
   };
 
   const handleLogout = () => {
-    window.location.href = 'http://localhost:8081/logout';
+    window.location.href = '/logout';
   };
 
   return (

@@ -20,7 +20,7 @@ interface ProjectDetailProps {
   onUpdateProject: (updated: Project) => void;
 }
 
-export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack }) => {
+export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdateProject }) => {
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [deploying, setDeploying] = useState(false);
   const [commitSha, setCommitSha] = useState('');
@@ -30,6 +30,11 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack })
     try {
       const list = await fetchProjectDeployments(project.id);
       setDeployments(list);
+      
+      // Update parent state if the active deployment ID has changed
+      if (list.length > 0 && list[0].project.activeDeploymentId !== project.activeDeploymentId) {
+        onUpdateProject(list[0].project);
+      }
     } catch (e) {
       console.error(e);
     }
@@ -55,7 +60,7 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack })
   };
 
   const copyWebhookUrl = () => {
-    const url = `${window.location.protocol}//${window.location.hostname}:8081/api/webhooks/github`;
+    const url = `${window.location.protocol}//${window.location.host}/api/webhooks/github`;
     navigator.clipboard.writeText(url);
     setCopiedWebhook(true);
     setTimeout(() => setCopiedWebhook(false), 2000);
@@ -135,9 +140,9 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack })
               </span>
             </div>
             <a
-              href={`http://localhost:8082/sites/projects/${project.id}/current/`}
+              href={`/sites/projects/${project.id}/current/`}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="flex items-center space-x-1.5 text-sm font-semibold text-emerald-400 hover:text-emerald-300 transition"
             >
               <span>Visit Production Site</span>

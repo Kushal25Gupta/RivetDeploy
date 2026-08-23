@@ -10,14 +10,14 @@ import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.http.SessionCreationPolicy;
 
+import org.springframework.session.data.redis.config.annotation.web.http.EnableRedisHttpSession;
+
 @Configuration
 @EnableWebSecurity
+@EnableRedisHttpSession
 public class SecurityConfig {
 
     private final CustomOAuth2UserService customOAuth2UserService;
-
-    @Value("${rivetdeploy.frontend.url:http://localhost:5173}")
-    private String frontendUrl;
 
     public SecurityConfig(CustomOAuth2UserService customOAuth2UserService) {
         this.customOAuth2UserService = customOAuth2UserService;
@@ -28,7 +28,7 @@ public class SecurityConfig {
         http
             .csrf(csrf -> csrf.disable()) // Disable CSRF for simplify API calls right now
             .authorizeHttpRequests(a -> a
-                .requestMatchers("/", "/error", "/api/webhooks/github", "/ws/**", "/actuator/**").permitAll()
+                .requestMatchers("/", "/error", "/api/webhooks/github", "/ws/**", "/actuator/**", "/sites/**").permitAll()
                 .anyRequest().authenticated()
             )
             .exceptionHandling(e -> e
@@ -38,11 +38,11 @@ public class SecurityConfig {
                 .userInfoEndpoint(userInfo -> userInfo
                     .userService(customOAuth2UserService)
                 )
-                .defaultSuccessUrl(frontendUrl + "/dashboard", true)
+                .defaultSuccessUrl("/dashboard", true)
             )
             .logout(l -> l
                 .logoutRequestMatcher(new org.springframework.security.web.util.matcher.AntPathRequestMatcher("/logout", "GET"))
-                .logoutSuccessUrl(frontendUrl + "/").permitAll()
+                .logoutSuccessUrl("/").permitAll()
             );
 
         return http.build();

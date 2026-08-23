@@ -57,9 +57,9 @@ resource "aws_security_group" "allow_web_ssh" {
   }
 
   ingress {
-    description = "Spring Boot API"
-    from_port   = 8080
-    to_port     = 8080
+    description = "Standard HTTP"
+    from_port   = 80
+    to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -70,6 +70,11 @@ resource "aws_security_group" "allow_web_ssh" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+}
+
+resource "aws_key_pair" "deployer" {
+  key_name   = "${var.project_name}-key"
+  public_key = file("~/.ssh/rivetdeploy_rsa.pub")
 }
 
 # Find latest Amazon Linux 2023 AMI
@@ -87,6 +92,7 @@ data "aws_ami" "amazon_linux_2023" {
 resource "aws_instance" "worker_node" {
   ami           = data.aws_ami.amazon_linux_2023.id
   instance_type = "t2.micro" # Free Tier eligible
+  key_name      = aws_key_pair.deployer.key_name
 
   vpc_security_group_ids = [aws_security_group.allow_web_ssh.id]
 
