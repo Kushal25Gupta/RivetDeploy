@@ -46,6 +46,10 @@ public class SiteController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Project or active deployment not found");
         }
 
+        if (project.getIsSuspended()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("This project has been suspended by the owner.");
+        }
+
         String deploymentId = project.getActiveDeploymentId();
 
         // Extract the remaining path after /sites/projects/{projectId}/current/

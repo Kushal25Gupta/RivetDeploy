@@ -32,6 +32,9 @@ public class Project {
     
     @Column(name = "updated_at")
     private Instant updatedAt;
+    
+    @Column(name = "is_suspended")
+    private boolean isSuspended = false;
 
     public Project() {}
 
@@ -58,4 +61,7 @@ public class Project {
 
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+
+    public boolean getIsSuspended() { return isSuspended; }
+    public void setIsSuspended(boolean isSuspended) { this.isSuspended = isSuspended; }
 }

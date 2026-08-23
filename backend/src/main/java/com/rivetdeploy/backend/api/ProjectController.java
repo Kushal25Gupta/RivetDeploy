@@ -56,4 +56,43 @@ public class ProjectController {
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteProject(@AuthenticationPrincipal OAuth2User principal, @PathVariable String id) {
+        Optional<User> user = getAuthenticatedUser(principal);
+        if (user.isEmpty()) return ResponseEntity.status(401).build();
+
+        try {
+            projectService.deleteProject(id, user.get().getId());
+            return ResponseEntity.ok().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @PostMapping("/{id}/suspend")
+    public ResponseEntity<Project> suspendProject(@AuthenticationPrincipal OAuth2User principal, @PathVariable String id) {
+        Optional<User> user = getAuthenticatedUser(principal);
+        if (user.isEmpty()) return ResponseEntity.status(401).build();
+
+        try {
+            Project project = projectService.suspendProject(id, user.get().getId());
+            return ResponseEntity.ok(project);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @PostMapping("/{id}/resume")
+    public ResponseEntity<Project> resumeProject(@AuthenticationPrincipal OAuth2User principal, @PathVariable String id) {
+        Optional<User> user = getAuthenticatedUser(principal);
+        if (user.isEmpty()) return ResponseEntity.status(401).build();
+
+        try {
+            Project project = projectService.resumeProject(id, user.get().getId());
+            return ResponseEntity.ok(project);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
 }

@@ -15,6 +15,7 @@ export interface Project {
   outputDirectory?: string;
   ownerId: string;
   activeDeploymentId?: string;
+  isSuspended: boolean;
   createdAt: string;
 }
 
@@ -84,6 +85,32 @@ export async function createProject(data: {
     credentials: 'include',
   });
   if (!res.ok) throw new Error('Failed to create project');
+  return await res.json();
+}
+
+export async function deleteProject(projectId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/projects/${projectId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  if (!res.ok) throw new Error('Failed to delete project');
+}
+
+export async function suspendProject(projectId: string): Promise<Project> {
+  const res = await fetch(`${API_BASE}/api/projects/${projectId}/suspend`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+  if (!res.ok) throw new Error('Failed to suspend project');
+  return await res.json();
+}
+
+export async function resumeProject(projectId: string): Promise<Project> {
+  const res = await fetch(`${API_BASE}/api/projects/${projectId}/resume`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+  if (!res.ok) throw new Error('Failed to resume project');
   return await res.json();
 }
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchProjectDeployments, triggerDeployment } from '../../lib/api';
+import { fetchProjectDeployments, triggerDeployment, suspendProject, resumeProject, deleteProject } from '../../lib/api';
 import type { Project, Deployment } from '../../lib/api';
 import { DeploymentList } from '../deployments/DeploymentList';
 import { 
@@ -11,7 +11,10 @@ import {
   RefreshCw, 
   Copy, 
   Check, 
-  Zap
+  Zap,
+  Trash2,
+  PowerOff,
+  Power
 } from 'lucide-react';
 
 interface ProjectDetailProps {
@@ -64,6 +67,31 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
     navigator.clipboard.writeText(url);
     setCopiedWebhook(true);
     setTimeout(() => setCopiedWebhook(false), 2000);
+  };
+
+  const handleSuspendToggle = async () => {
+    try {
+      if (project.isSuspended) {
+        const updated = await resumeProject(project.id);
+        onUpdateProject(updated);
+      } else {
+        const updated = await suspendProject(project.id);
+        onUpdateProject(updated);
+      }
+    } catch (e: any) {
+      alert(e.message || 'Failed to toggle suspension status');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (window.confirm('Are you sure you want to delete this project? This will permanently delete all deployments.')) {
+      try {
+        await deleteProject(project.id);
+        onBack(); // Go back to the main projects list
+      } catch (e: any) {
+        alert(e.message || 'Failed to delete project');
+      }
+    }
   };
 
   return (
@@ -177,6 +205,52 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
           {copiedWebhook ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
           <span>{copiedWebhook ? 'Copied URL' : 'Copy Webhook URL'}</span>
         </button>
+      </div>
+
+      {/* Danger Zone */}
+      <div className="bg-slate-900/50 border border-red-900/30 rounded-2xl p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">Project Management</h3>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div className="p-5 rounded-xl border border-slate-800 bg-slate-900 flex flex-col justify-between items-start space-y-4">
+            <div>
+              <h4 className="text-sm font-medium text-slate-200 mb-1">
+                {project.isSuspended ? 'Resume Project' : 'Suspend Project'}
+              </h4>
+              <p className="text-xs text-slate-400">
+                {project.isSuspended 
+                  ? 'Re-enable routing to your project. It will be instantly available again.'
+                  : 'Temporarily block access to your live project. Returns a 403 Forbidden.'}
+              </p>
+            </div>
+            <button
+              onClick={handleSuspendToggle}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-sm font-medium transition border ${
+                project.isSuspended 
+                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20' 
+                  : 'bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20'
+              }`}
+            >
+              {project.isSuspended ? <Power className="w-4 h-4" /> : <PowerOff className="w-4 h-4" />}
+              <span>{project.isSuspended ? 'Resume Project' : 'Suspend Project'}</span>
+            </button>
+          </div>
+
+          <div className="p-5 rounded-xl border border-red-900/30 bg-slate-900 flex flex-col justify-between items-start space-y-4">
+            <div>
+              <h4 className="text-sm font-medium text-red-400 mb-1">Delete Project</h4>
+              <p className="text-xs text-slate-400">
+                Permanently delete this project and all of its deployment history. This action cannot be undone.
+              </p>
+            </div>
+            <button
+              onClick={handleDelete}
+              className="flex items-center space-x-2 px-4 py-2 rounded-xl text-sm font-medium bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 transition"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Delete Project</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Deployment List */}

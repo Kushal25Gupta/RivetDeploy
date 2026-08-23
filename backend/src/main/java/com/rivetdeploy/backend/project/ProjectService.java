@@ -33,4 +33,24 @@ public class ProjectService {
     public Optional<Project> getProjectForUser(String projectId, String ownerId) {
         return projectRepository.findByIdAndOwnerId(projectId, ownerId);
     }
+
+    public void deleteProject(String projectId, String ownerId) {
+        Project project = getProjectForUser(projectId, ownerId)
+            .orElseThrow(() -> new IllegalArgumentException("Project not found"));
+        projectRepository.delete(project);
+    }
+
+    public Project suspendProject(String projectId, String ownerId) {
+        Project project = getProjectForUser(projectId, ownerId)
+            .orElseThrow(() -> new IllegalArgumentException("Project not found"));
+        project.setIsSuspended(true);
+        return projectRepository.save(project);
+    }
+
+    public Project resumeProject(String projectId, String ownerId) {
+        Project project = getProjectForUser(projectId, ownerId)
+            .orElseThrow(() -> new IllegalArgumentException("Project not found"));
+        project.setIsSuspended(false);
+        return projectRepository.save(project);
+    }
 }
