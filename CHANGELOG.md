@@ -109,3 +109,7 @@ All notable changes to this project will be documented in this file.
 - Fixed a `frontend/.gitignore` bug that accidentally ignored `TerminalViewer.tsx` during GitHub builds.
 - Upgraded root `Dockerfile` to `node:20-alpine` and configured it to compile the React dashboard for self-hosted deployments.
 - Cleaned up obsolete local API testing scripts and temporary Python scratchpad files.
+## [2026-08-23T09:27:00Z]
+- Began Phase 2: Google Cloud Infrastructure Provisioning.
+- Authored initial Terraform scripts (`infra/terraform/main.tf`, `variables.tf`, `outputs.tf`) targeting GCP's "Always Free" tier.
+- Designed architecture integrating Cloud Run (API) and an `e2-micro` Compute Engine VM (DB/Worker) using Direct VPC Egress for zero-cost internal network communication.
